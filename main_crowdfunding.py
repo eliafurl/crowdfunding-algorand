@@ -169,10 +169,13 @@ def read_global_state(client, app_id):
 
 # helper function to read app local state
 def read_local_state(client, app_id, account):
-    app = client.application_info(app_id)
-    print('app:\n{}'.format(app))  # DEBUG
-    global_state = app['params']['global-state'] if 'global-state' in app['params'] else []
-    return format_state(global_state)
+    results = client.account_info(account)
+    for local_state in results["apps-local-state"]:
+        if local_state["id"] == app_id:
+            if "key-value" not in local_state:
+                return {}
+            return format_state(local_state["key-value"])
+    return {}
 
 
 # TODO: move to utils.py
