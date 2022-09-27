@@ -1,7 +1,7 @@
 # Crowdfunding platform development
 
 ## Folder structure
-- contracts: contains folders for different types of contracts (e.g. counter: example contract using Router; crowdfunding: actual folder for crowdfunding contracts).
+- contracts: contains folders for different types of contracts (e.g. counter: example contract; crowdfunding: actual folder for crowdfunding contracts).
 - build: contains build artifacts e.g. *.teal and *.json files.
 - main_*.py: python main for testing the contracts. 
 
@@ -32,11 +32,11 @@
 
 
 ## HOW TO
-* Compile the PyTeal into TEAL:
+* Export TEAL and ABI:
     ```txt
-    source ./build.sh crowdfunding/crowdfundingCampaign.py
+    python3 /path/to/contract.py
     ```
 * Compile, deploy and test contracts:
     ```txt
-    python3 main_crowdfunding.py
+    python3 main_<contract>.py
     ```
