@@ -1,58 +1,155 @@
+from ast import Bytes
 from typing import Final
 
-from pyteal import abi, TealType, Global, Int, Seq
+from pyteal import abi, TealType, Global, Int, Seq, App
 from beaker.application import Application
-from beaker.state import ApplicationStateValue, AccountStateValue
-from beaker.decorators import external, create, opt_in, Authorize
+from beaker.state import (
+    ApplicationStateValue,
+    DynamicApplicationStateValue,
+    AccountStateValue
+)
+from beaker.decorators import external, internal, create, opt_in, Authorize
 
 
 class CrowdfundingCampaignApp(Application):
 
     # global states
-    total_amount: Final[ApplicationStateValue] = ApplicationStateValue(
-        stack_type=TealType.uint64,
-        descr="Actual amount collected by the crowdfunding campaign",
-    )
-
-    start_date: Final[ApplicationStateValue] = ApplicationStateValue(
-        stack_type=TealType.uint64,
-        descr="Crowdfunding campaign's start date",
-    )
-
-    end_date: Final[ApplicationStateValue] = ApplicationStateValue(
-        stack_type=TealType.uint64,
-        descr="Crowdfunding campaign's end date",
-    )
-
     creator: Final[ApplicationStateValue] = ApplicationStateValue(
         stack_type=TealType.bytes,
-        descr="Crowdfunding campaign's creator",
+        descr="Creator of the crowdfunding campaign.",
     )
 
-    receiver: Final[ApplicationStateValue] = ApplicationStateValue(
+    campaign_goal: Final[ApplicationStateValue] = ApplicationStateValue(
+        stack_type=TealType.uint64,
+        descr="Minimum ALGO amount to be collect by the crowdfunding campaign.",
+    )
+
+    collected_funds: Final[ApplicationStateValue] = ApplicationStateValue(
+        stack_type=TealType.uint64,
+        descr="Minimum ALGO amount to be collect by the crowdfunding campaign.",
+    )
+
+    funds_receiver: Final[ApplicationStateValue] = ApplicationStateValue(
         stack_type=TealType.bytes,
-        descr="Crowdfunding campaign's funds receiver",
+        descr="Address of the funds receiver (address specified by the Creator).",
+    )
+
+    total_backers: Final[ApplicationStateValue] = ApplicationStateValue( # TODO: Is it really necessary?
+        stack_type=TealType.uint64,
+        descr="Total number of backers for the campaign.",
+    )
+
+    fund_start_date: Final[ApplicationStateValue] = ApplicationStateValue( # UNIX timestamp
+        stack_type=TealType.uint64,
+        descr="UNIX timestamp of when the crowdfunding campaign starts.",
+    )
+
+    fund_end_date: Final[ApplicationStateValue] = ApplicationStateValue( # UNIX timestamp
+        stack_type=TealType.uint64,
+        descr="UNIX timestamp of when the crowdfunding campaign endss.",
+    )
+
+    total_milestones: Final[ApplicationStateValue] = ApplicationStateValue(
+        stack_type=TealType.uint64,
+        descr="Crowdfunding campaign's total milestones (max 10 milestones).",
+    )
+
+    reached_milestone: Final[ApplicationStateValue] = ApplicationStateValue(
+        stack_type=TealType.uint64,
+        descr="Current number of milestones reached.",
+    )
+
+    # TODO: use funds_per_milestone for storing the values
+    # funds_per_milestone: Final[DynamicApplicationStateValue] = DynamicApplicationStateValue(
+    #     stack_type=TealType.uint64,
+    #     max_keys=10,
+    #     descr="List of funds divided for each milestone (max 10 milestones)",
+    # )
+
+    funds_0_milestone: Final[ApplicationStateValue] = ApplicationStateValue(
+        stack_type=TealType.uint64,
+        descr="Funds for 0 milestone",
+    )
+    
+    funds_1_milestone: Final[ApplicationStateValue] = ApplicationStateValue(
+        stack_type=TealType.uint64,
+        descr="Funds for 1st milestone",
+    )
+
+    campaign_state: Final[ApplicationStateValue] = ApplicationStateValue(
+        stack_type=TealType.uint64,
+        descr="Current state of the crowdfunding campaign: \
+        [funding:0, waiting_for_next_milestone:1, milestone_validation:2, ended:3].",
+    )
+
+    milestone_approval_app_id: Final[ApplicationStateValue] = ApplicationStateValue(
+        stack_type=TealType.uint64,
+        descr="Application ID for the current milestone approval app.",
+    )
+
+    RNFT_id: Final[ApplicationStateValue] = ApplicationStateValue(
+        stack_type=TealType.uint64,
+        descr="ID for the R-NFT (Reward-NFT).",
+    )
+
+    reward_metadata: Final[ApplicationStateValue] = ApplicationStateValue(
+        stack_type=TealType.bytes,
+        descr="IPFS metadata link about the reward (R-NFT) to be claimed by the user.",
     )
 
     # local states
-    account_amount: Final[AccountStateValue] = AccountStateValue(
+    amount_backed: Final[AccountStateValue] = AccountStateValue(
         stack_type=TealType.uint64,
-        descr="Actual amount funded by the current account",
+        descr="Total amount of ALGO backed to the campaign by single backer.",
     )
 
     @create
-    def create(self):
-        return self.initialize_application_state()
+    def create(self,
+        campaign_goal: abi.Uint64,
+        funds_receiver: abi.String,
+        fund_start_date: abi.Uint64,
+        fund_end_date: abi.Uint64,
+        reward_metadata: abi.String,
+        total_milestones: abi.Uint8,
+        funds_0_milestone: abi.Uint64,
+        funds_1_milestone: abi.Uint64,
+    ):
+        return Seq(
+            self.initialize_application_state(),
+            self.campaign_goal.set(campaign_goal.get()),
+            self.funds_receiver.set(funds_receiver.get()),
+            self.fund_start_date.set(fund_start_date.get()),
+            self.fund_end_date.set(fund_end_date.get()),
+            self.reward_metadata.set(reward_metadata.get()),
+            self.total_milestones.set(total_milestones.get()),
+
+            # TODO: use funds_per_milestone for storing the values
+            # self.set_funds_per_milestone_val(k=Int(0), v=funds_0_milestone.get()),
+            # self.set_funds_per_milestone_val(k=Int(1), v=funds_0_milestone.get()), 
+            self.funds_0_milestone.set(funds_0_milestone.get()),    
+            self.funds_1_milestone.set(funds_1_milestone.get()),
+
+            self.reached_milestone.set(Int(0xFFFFFFFFFFFFFFFF)),
+        )
 
     @opt_in
     def opt_in(self):
-        return self.initialize_account_state()
+        return Seq(
+            self.initialize_account_state(),
+        )
+
+    # def set_funds_per_milestone_val(self, k: abi.Uint8, v: abi.Uint64):
+    #     return self.funds_per_milestone[k].set(v.get())
+
+    # @internal(read_only=True)
+    # def get_funds_per_milestone_val(self, k: abi.Uint8, *, output: abi.Uint64):
+    #     return output.set(self.funds_per_milestone[k])
 
 if __name__ == "__main__":
 
-    approval_filename = "./build/approval.teal"
-    clear_filename = "./build/clear.teal"
-    interface_filename = "./build/contract.json"
+    approval_filename = "./build/crowdfunding-approval.teal"
+    clear_filename = "./build/crowdfunding-clear.teal"
+    interface_filename = "./build/crowdfunding-contract.json"
     
     app = CrowdfundingCampaignApp()
 

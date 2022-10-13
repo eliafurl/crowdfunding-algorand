@@ -1,3 +1,4 @@
+from cgi import test
 from beaker.client import ApplicationClient
 from beaker import sandbox
 
@@ -13,8 +14,25 @@ def demo():
     # Create the Application client containing both an algod client and CrowdfundingCampaignApp
     creator_app_client = ApplicationClient(client, CrowdfundingCampaignApp(), signer=creator_acct.signer)
 
-    # Create the applicatiion on chain, set the app id for the app client
-    app_id, app_addr, txid = creator_app_client.create()
+    # Create the applicatiion on chain, set the app id for the app client. AppArgs:
+    # campaign_goal: abi.Uint64,
+    # funds_receiver: abi.Byte,
+    # fund_start_date: abi.Uint64,
+    # fund_end_date: abi.Uint64,
+    # reward_metadata: abi.Byte,
+    # total_milestones: abi.Uint8,
+    # funds_0_milestone: abi.Uint64,
+    # funds_1_milestone: abi.Uint64,
+    app_id, app_addr, txid = creator_app_client.create(
+        campaign_goal=100000,
+        funds_receiver=creator_acct.address,
+        fund_start_date=9999999,
+        fund_end_date=9999999,
+        reward_metadata="ipfs:/metadata/CID",
+        total_milestones=2,
+        funds_0_milestone=50000,
+        funds_1_milestone=50000
+    )
     print(f"Created App with id: {app_id} and address addr: {app_addr} in tx: {txid}")
 
     # Read app global state 
@@ -27,6 +45,7 @@ def demo():
     
     user_local_state = user_app_client.get_account_state(account=user_acct.address)
     print(f"[App id: {app_id}] Account {user_acct.address} local state:\n{user_local_state}\n")
+
 
 
 if __name__ == "__main__":
