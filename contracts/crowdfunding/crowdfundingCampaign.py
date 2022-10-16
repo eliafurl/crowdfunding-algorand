@@ -1,7 +1,8 @@
-from ast import Bytes
+#from ast import And, Assert, Bytes, Return
 from typing import Final
+from xml.etree.ElementTree import Comment
 
-from pyteal import abi, TealType, Global, Int, Seq, App
+from pyteal import abi, TealType, Global, Int, Seq, App, Txn, Assert, Approve
 from beaker.application import Application
 from beaker.state import (
     ApplicationStateValue,
@@ -9,6 +10,7 @@ from beaker.state import (
     AccountStateValue
 )
 from beaker.decorators import external, internal, create, opt_in, Authorize
+from beaker import consts
 
 
 class CrowdfundingCampaignApp(Application):
@@ -56,6 +58,7 @@ class CrowdfundingCampaignApp(Application):
 
     reached_milestone: Final[ApplicationStateValue] = ApplicationStateValue(
         stack_type=TealType.uint64,
+        default=Int(0xFFFFFFFFFFFFFFFF),
         descr="Current number of milestones reached.",
     )
 
@@ -128,14 +131,30 @@ class CrowdfundingCampaignApp(Application):
             # self.set_funds_per_milestone_val(k=Int(1), v=funds_0_milestone.get()), 
             self.funds_0_milestone.set(funds_0_milestone.get()),    
             self.funds_1_milestone.set(funds_1_milestone.get()),
-
-            self.reached_milestone.set(Int(0xFFFFFFFFFFFFFFFF)),
         )
 
     @opt_in
     def opt_in(self):
         return Seq(
             self.initialize_account_state(),
+        )
+
+    @external(authorize=Authorize.opted_in(Global.current_application_id()))
+    def fund(self, funding: abi.PaymentTransaction):
+        return Seq(
+            Assert(
+               self.campaign_state.get() == Int(0), comment="campaign must be in funding phase"
+            ),
+            Assert(
+                    funding.get().amount() >= consts.Algos(10), comment="must be greater then 10 algos"
+            ),
+            Assert(funding.get().receiver() == self.address, comment="must be to me"),
+            Assert(self.amount_backed[Txn.sender()].get() == Int(0), comment="must have not yet funded"),
+
+            self.amount_backed[Txn.sender()].set(funding.get().amount()),
+            self.collected_funds.increment(self.amount_backed[Txn.sender()].get()),
+            self.total_backers.increment(Int(1)),
+            Approve(),
         )
 
     # def set_funds_per_milestone_val(self, k: abi.Uint8, v: abi.Uint64):
