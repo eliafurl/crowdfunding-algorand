@@ -157,6 +157,22 @@ class CrowdfundingCampaignApp(Application):
             Approve(),
         )
 
+    @external(authorize=Authorize.only(Global.creator_address()))
+    def submit_milestone(self,
+        milestone_to_approve: abi.Uint8,
+        milestone_metadata: abi.String,
+        vote_end_date: abi.Uint64,
+        *,
+        output: abi.Uint64 # milestone_approval_app_id
+    ):
+        return Seq(
+            Assert(self.campaign_state.get() == Int(1), comment="must be in waiting_for_next_milestone state"),
+            #TODO: MilestoneApprovalApp.create()
+            #TODO: Set milestone_approval_app_id
+            self.campaign_state.set(Int(2)), # milestone_validation state
+            output.set(Int(0)) # TODO: return the milestone_approval_app_id
+        )
+
     # def set_funds_per_milestone_val(self, k: abi.Uint8, v: abi.Uint64):
     #     return self.funds_per_milestone[k].set(v.get())
 
