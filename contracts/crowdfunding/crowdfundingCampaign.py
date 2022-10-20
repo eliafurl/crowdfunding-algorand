@@ -1,22 +1,43 @@
-#from ast import And, Assert, Bytes, Return
 from typing import Final
-from xml.etree.ElementTree import Comment
 
-from pyteal import abi, TealType, Global, Int, Seq, App, Txn, Assert, Approve
+from pyteal import (
+    abi,
+    TealType,
+    Global,
+    Int,
+    Seq,
+    App,
+    Txn,
+    Assert,
+    Approve,
+    Reject,
+    If,
+    And,
+    Subroutine
+)
+
 from beaker.application import Application
 from beaker.state import (
     ApplicationStateValue,
     DynamicApplicationStateValue,
     AccountStateValue
 )
-from beaker.decorators import external, internal, create, opt_in, Authorize
+
+from beaker.decorators import (
+    external,
+    internal,
+    create,
+    opt_in,
+    Authorize
+)
+
 from beaker import consts
 
 
 class CrowdfundingCampaignApp(Application):
 
     # global states
-    creator: Final[ApplicationStateValue] = ApplicationStateValue(
+    creator: Final[ApplicationStateValue] = ApplicationStateValue( # TODO: Is it really necessary?
         stack_type=TealType.bytes,
         descr="Creator of the crowdfunding campaign.",
     )
@@ -109,7 +130,7 @@ class CrowdfundingCampaignApp(Application):
     @create
     def create(self,
         campaign_goal: abi.Uint64,
-        funds_receiver: abi.String,
+        funds_receiver: abi.Address,
         fund_start_date: abi.Uint64,
         fund_end_date: abi.Uint64,
         reward_metadata: abi.String,
@@ -158,6 +179,54 @@ class CrowdfundingCampaignApp(Application):
         )
 
     @external(authorize=Authorize.only(Global.creator_address()))
+    def claim_funds(self):
+        return Seq(
+            If(
+                And(
+                    self.campaign_state.get() == Int(0), # in funding phase
+                    self.fund_end_date.get() < Global.latest_timestamp(), # funding window ended
+                    self.collected_funds.get() < self.campaign_goal.get() # campaign unsuccessful
+                )
+            )
+            .Then(self.campaign_state.set(Int(3))) # campaign ended unsuccessfully
+            .ElseIf(
+                And(
+                    self.campaign_state.get() == Int(0), # in funding phase
+                    self.fund_end_date.get() < Global.latest_timestamp(), # funding window ended
+                    self.collected_funds.get() >= self.campaign_goal.get(), # campaign successful
+                )
+            )
+            .Then(
+                Seq( # campaign funded successfully, mint R-NFT and transfer first funds
+                    self.RNFT_id.set(self.mint_RNFT()), 
+                    self.reached_milestone.set(Int(0)),
+                    #Transfer funds_per_milestone[reached_milestone] to funds_receiver
+                    #TODO: implement
+                )
+            )
+            .ElseIf(
+                self.campaign_state.get() == Int(2) # Campaign already funded. Milestone submitted
+            )
+            .Then(
+                # Reject if the voting is in progress
+                #TODO: implement -> Assert (MilestoneApprovalApp.approval_state == pending_approval)
+                # If(MilestoneApprovalApp.approval_state == approved) # Milestone approved.
+                # .Then(self.reached_milestone.increment(Int(1)))
+                # Transfer funds_per_milestone[reached_milestone] to funds_receiver
+
+                self.milestone_approval_app_id.set(Int(0)),
+                #TODO: MilestoneApprovalApp.delete()
+            )
+            .Else(Reject()),
+
+            # Check that all the milestones have been completed
+            If(self.reached_milestone.get() == (self.total_milestones.get() - Int(1)))
+            .Then(self.campaign_state.set(Int(3))) # campaign: ended
+            .Else(self.campaign_state.set(Int(1))), # campaign: waiting for next milestone
+            Approve()
+        )
+
+    @external(authorize=Authorize.only(Global.creator_address()))
     def submit_milestone(self,
         milestone_to_approve: abi.Uint8,
         milestone_metadata: abi.String,
@@ -169,9 +238,13 @@ class CrowdfundingCampaignApp(Application):
             Assert(self.campaign_state.get() == Int(1), comment="must be in waiting_for_next_milestone state"),
             #TODO: MilestoneApprovalApp.create()
             #TODO: Set milestone_approval_app_id
-            self.campaign_state.set(Int(2)), # milestone_validation state
+            self.campaign_state.set(Int(2)), # in milestone_validation phase
             output.set(Int(0)) # TODO: return the milestone_approval_app_id
         )
+
+    @Subroutine(TealType.uint64) 
+    def mint_RNFT(): # output: RNFT ID
+        return Int(1) #TODO: implementation
 
     # def set_funds_per_milestone_val(self, k: abi.Uint8, v: abi.Uint64):
     #     return self.funds_per_milestone[k].set(v.get())
@@ -182,9 +255,9 @@ class CrowdfundingCampaignApp(Application):
 
 if __name__ == "__main__":
 
-    approval_filename = "./build/crowdfunding-approval.teal"
-    clear_filename = "./build/crowdfunding-clear.teal"
-    interface_filename = "./build/crowdfunding-contract.json"
+    approval_filename = "./build/crowdfundingCampaign-approval.teal"
+    clear_filename = "./build/crowdfundingCampaign-clear.teal"
+    interface_filename = "./build/crowdfundingCampaign-contract.json"
     
     app = CrowdfundingCampaignApp()
 
