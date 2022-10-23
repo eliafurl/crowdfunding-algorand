@@ -1,4 +1,5 @@
 from typing import Final
+from webbrowser import get
 
 from pyteal import (
     abi,
@@ -13,13 +14,19 @@ from pyteal import (
     Reject,
     If,
     And,
-    Subroutine
+    Subroutine,
+    InnerTxnBuilder,
+    TxnField,
+    TxnType,
+    InnerTxn,
+    Bytes,
+    Itob
 )
 
 from beaker.application import Application
 from beaker.state import (
     ApplicationStateValue,
-    DynamicApplicationStateValue,
+    #DynamicApplicationStateValue,
     AccountStateValue
 )
 
@@ -32,9 +39,21 @@ from beaker.decorators import (
 )
 
 from beaker import consts
+from beaker.precompile import AppPrecompile
 
+try:
+    from milestoneApproval import MilestoneApprovalApp
+except ImportError:
+    print('Relative import failed')
+
+try:
+    from contracts.crowdfunding.milestoneApproval import MilestoneApprovalApp
+except ModuleNotFoundError:
+    print('Absolute import failed')
 
 class CrowdfundingCampaignApp(Application):
+
+    milestone_app: AppPrecompile = AppPrecompile(MilestoneApprovalApp())
 
     # global states
     creator: Final[ApplicationStateValue] = ApplicationStateValue( # TODO: Is it really necessary?
@@ -134,7 +153,7 @@ class CrowdfundingCampaignApp(Application):
         fund_start_date: abi.Uint64,
         fund_end_date: abi.Uint64,
         reward_metadata: abi.String,
-        total_milestones: abi.Uint8,
+        total_milestones: abi.Uint64,
         funds_0_milestone: abi.Uint64,
         funds_1_milestone: abi.Uint64,
     ):
@@ -228,7 +247,7 @@ class CrowdfundingCampaignApp(Application):
 
     @external(authorize=Authorize.only(Global.creator_address()))
     def submit_milestone(self,
-        milestone_to_approve: abi.Uint8,
+        milestone_to_approve: abi.Uint64,
         milestone_metadata: abi.String,
         vote_end_date: abi.Uint64,
         *,
@@ -236,10 +255,35 @@ class CrowdfundingCampaignApp(Application):
     ):
         return Seq(
             Assert(self.campaign_state.get() == Int(1), comment="must be in waiting_for_next_milestone state"),
-            #TODO: MilestoneApprovalApp.create()
-            #TODO: Set milestone_approval_app_id
+            # Create the MilestoneApprovalApp
+            # creator: abi.Address,
+            # crowdfunding_address: abi.Address,
+            # milestone_to_approve: abi.Uint64,
+            # vote_end_date: abi.Uint64,
+            # milestone_metadata: abi.String,
+            InnerTxnBuilder.Begin(),
+            InnerTxnBuilder.SetFields(
+                {
+                    TxnField.type_enum: TxnType.ApplicationCall,
+                    TxnField.approval_program: self.milestone_app.approval.binary,
+                    TxnField.clear_state_program: self.milestone_app.clear.binary,
+                    TxnField.fee: Int(0),
+                    TxnField.application_args: [
+                            Global.creator_address(),
+                            Global.current_application_address(),
+                            Itob(milestone_to_approve.get()),
+                            Itob(vote_end_date.get()),
+                            milestone_metadata.get()
+                        ],
+                }
+            ),
+            InnerTxnBuilder.Submit(),
+
+            # Set milestone_approval_app_id
+            self.milestone_approval_app_id.set(InnerTxn.created_application_id()),
+            
             self.campaign_state.set(Int(2)), # in milestone_validation phase
-            output.set(Int(0)) # TODO: return the milestone_approval_app_id
+            output.set(self.milestone_approval_app_id.get())
         )
 
     @Subroutine(TealType.uint64) 
@@ -255,21 +299,10 @@ class CrowdfundingCampaignApp(Application):
 
 if __name__ == "__main__":
 
-    approval_filename = "./build/crowdfundingCampaign-approval.teal"
-    clear_filename = "./build/crowdfundingCampaign-clear.teal"
-    interface_filename = "./build/crowdfundingCampaign-contract.json"
-    
     app = CrowdfundingCampaignApp()
 
-    # save TEAL and ABI in build folder
-    with open(approval_filename, "w") as f:
-        f.write(app.approval_program)
-
-    with open(clear_filename, "w") as f:
-        f.write(app.clear_program)
-
-    import json
-    with open(interface_filename, "w") as f:
-        f.write(json.dumps(app.contract.dictify()))
-    
-    print('\n------------TEAL generation completed!------------\n')
+    try:
+        app.dump("./build/crowdfundingCampaign")
+        print('\n------------TEAL generation completed!------------\n')
+    except Exception as err:
+        print('Error: {}'.format(err))
