@@ -38,7 +38,7 @@ from beaker.decorators import (
     Authorize
 )
 
-from beaker import consts
+from beaker import consts, sandbox
 from beaker.precompile import AppPrecompile
 
 try:
@@ -300,9 +300,8 @@ class CrowdfundingCampaignApp(Application):
 if __name__ == "__main__":
 
     app = CrowdfundingCampaignApp()
-
     try:
-        app.dump("./build/crowdfundingCampaign")
+        app.dump("./build/crowdfundingCampaign", client=sandbox.get_algod_client())
         print('\n------------TEAL generation completed!------------\n')
     except Exception as err:
         print('Error: {}'.format(err))
