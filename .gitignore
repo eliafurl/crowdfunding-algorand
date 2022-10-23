@@ -6,3 +6,5 @@ venv
 build/*
 # Except .gitkeep
 !build/.gitkeep
+!build/crowdfundingCampaign/.gitkeep
+!build/milestoneApproval/.gitkeep
