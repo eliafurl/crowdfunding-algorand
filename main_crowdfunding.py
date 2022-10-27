@@ -99,6 +99,10 @@ def demo():
     # submit milestone 
     #TODO: implement CrowdfundingCampaignApp.submit_milestone() and test
     print("---------Submit 1 milestone from creator account")
+    # raise the fees for paying the inner transactions
+    sp = creator_app_client.client.suggested_params()
+    sp.fee = sp.min_fee * 2
+    sp.flat_fee = True
     # milestone_to_approve: abi.Uint8,
     # milestone_metadata: abi.String,
     # vote_end_date: abi.Uint64,
@@ -106,7 +110,8 @@ def demo():
         CrowdfundingCampaignApp.submit_milestone,
         milestone_to_approve=1,
         milestone_metadata="ipfs:/milestone_1_metadata/CID",
-        vote_end_date=10#TODO
+        vote_end_date=10,#TODO
+        suggested_params=sp
     )
 
     app_global_state = creator_app_client.get_application_state()
