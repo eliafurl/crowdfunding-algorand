@@ -23,16 +23,16 @@ from pyteal import (
     Itob
 )
 
-from beaker.application import Application
+from beaker.application import (
+    Application,
+)
 from beaker.state import (
     ApplicationStateValue,
     #DynamicApplicationStateValue,
     AccountStateValue
 )
-
 from beaker.decorators import (
     external,
-    internal,
     create,
     opt_in,
     Authorize
