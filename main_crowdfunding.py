@@ -8,6 +8,7 @@ from algosdk.future import transaction
 from algosdk.atomic_transaction_composer import TransactionWithSigner
 
 from contracts.crowdfunding.crowdfundingCampaign import CrowdfundingCampaignApp
+from contracts.crowdfunding.milestoneApproval import MilestoneApprovalApp
 
 def demo():
     client = sandbox.get_algod_client()
@@ -86,13 +87,12 @@ def demo():
     print("---------Claim funds 0 milestone from creator account")
     result = creator_app_client.call(CrowdfundingCampaignApp.claim_funds)
 
-    print_state(creator_app_client, ["campaign_state", "collected_funds", "total_backers"])
+    print_state(creator_app_client, ["campaign_state", "collected_funds", "total_backers", "milestone_approval_app_id"])
 
     # claim R-NFT
     #TODO: implement CrowdfundingCampaignApp.claim_reward() and test
 
     # submit milestone 
-    #TODO: implement CrowdfundingCampaignApp.submit_milestone() and test
     print("---------Submit 1 milestone from creator account")
     # raise the fees for paying the inner transactions
     sp = creator_app_client.client.suggested_params()
@@ -105,11 +105,19 @@ def demo():
         CrowdfundingCampaignApp.submit_milestone,
         milestone_to_approve=1,
         milestone_metadata="ipfs:/milestone_1_metadata/CID",
-        vote_end_date=10,#TODO
+        vote_end_date=10,#TODO: set an correct vote_end_date time
         suggested_params=sp
     )
+    print(result.return_value)
 
-    print_state(creator_app_client, ["campaign_state", "collected_funds", "total_backers"])
+    print_state(creator_app_client, ["campaign_state", "collected_funds", "total_backers", "milestone_approval_app_id"])
+
+    # TODO:
+    # 1. opt-in form creator and user
+    # 2. vote the approval of the milestone
+    # 3. settle voting
+    milestone_app_client = ApplicationClient(client, MilestoneApprovalApp(), app_id=result.return_value, signer=creator_acct.signer)
+    print_state(milestone_app_client)
 
     # claim funds
     # print("---------Claim funds 1 milestone from creator account")

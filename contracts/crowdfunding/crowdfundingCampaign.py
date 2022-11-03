@@ -20,7 +20,8 @@ from pyteal import (
     TxnType,
     InnerTxn,
     Bytes,
-    Itob
+    Itob,
+    MethodSignature
 )
 
 from beaker.application import (
@@ -159,6 +160,7 @@ class CrowdfundingCampaignApp(Application):
     ):
         return Seq(
             self.initialize_application_state(),
+            self.creator.set(Txn.sender()),
             self.campaign_goal.set(campaign_goal.get()),
             self.funds_receiver.set(funds_receiver.get()),
             self.fund_start_date.set(fund_start_date.get()),
@@ -267,13 +269,18 @@ class CrowdfundingCampaignApp(Application):
                     TxnField.type_enum: TxnType.ApplicationCall,
                     TxnField.approval_program: self.milestone_app.approval.binary,
                     TxnField.clear_state_program: self.milestone_app.clear.binary,
+                    TxnField.global_num_uints: Int(5),
+                    TxnField.global_num_byte_slices: Int(3),
+                    TxnField.local_num_uints: Int(1),
+                    TxnField.local_num_byte_slices: Int(0),
                     TxnField.fee: Int(0),
                     TxnField.application_args: [
+                            MethodSignature("create(address,address,uint64,uint64,string)void"),
                             Global.creator_address(),
                             Global.current_application_address(),
-                            Itob(milestone_to_approve.get()),
-                            Itob(vote_end_date.get()),
-                            milestone_metadata.get()
+                            milestone_to_approve.encode(),
+                            vote_end_date.encode(),
+                            milestone_metadata.encode()
                         ],
                 }
             ),
