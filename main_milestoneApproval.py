@@ -37,8 +37,7 @@ def demo():
     print(f"Created App with id: {app_id} and address addr: {app_addr} in tx: {txid}")
 
     # Read app global state 
-    app_global_state = creator_app_client.get_application_state()
-    print(f"[App id: {app_id}] Global state:\n{app_global_state}\n")
+    print_state(creator_app_client)
 
     # opt in from the creator_acct
     creator_app_client.opt_in(vote=1)
@@ -48,25 +47,44 @@ def demo():
     user_app_client = creator_app_client.prepare(signer=user_acct.signer)
     user_app_client.opt_in(vote=1)
     
-    user_local_state = user_app_client.get_account_state(account=user_acct.address)
-    print(f"[App id: {app_id}] Account {user_acct.address} local state:\n{user_local_state}\n")
+    print_state(creator_app_client, account=user_acct)
 
     # Read app global state 
-    app_global_state = creator_app_client.get_application_state()
-    print(f"[App id: {app_id}] Global state:\n{app_global_state}\n")
+    print_state(creator_app_client, states=["approval_state","approve_votes", "reject_votes"])
 
     # # Wait for the funding time window to close
-    time.sleep(30)
+    time.sleep(35)
 
     # settle the voting
-    print("---------Settle the voting from creator account")
+    print(f"---------Settle the voting from creator account")
     result = creator_app_client.call(MilestoneApprovalApp.vote_settling)
 
     # Read app global state 
-    app_global_state = creator_app_client.get_application_state()
-    print(f"[App id: {app_id}] Global state:\n{app_global_state}\n")
+    print_state(creator_app_client, states=["approval_state","approve_votes", "reject_votes"])
 
+def print_state(app_client, states=[], account=""):
+    """
+    Utility used to retrieve and print the global or local state of an Application/Account.
+    
+    Args:
+    app_client: ApplicationClient used to retrieve the global or local state for the specific Applicaiton
+    states: list containing all the states to be printed. Empty for printing all states.
+    account: SanboxAccount for retrieving the local state of the account of interest. Required only for local state.
+    """
 
+    state = {}
+    if not account: # global state
+        print(f"[AppID: {app_client.app_id}] Global State")
+        state = app_client.get_application_state()
+    else:
+        print(f"[AppID: {app_client.app_id}] Local State for {account.address}")
+        state = app_client.get_account_state(account=account.address)
+
+    if not states:
+        states = state.keys()
+    for key in states:
+        print(f"{key}: {state[key]}")
+    print("\n")
 
 if __name__ == "__main__":
     app = MilestoneApprovalApp()

@@ -1,6 +1,6 @@
 pyteal==0.18.1
 py-algorand-sdk==1.16.1
-beaker-pyteal==0.2.0
+beaker-pyteal==0.3.3
 mypy==0.910
 pytest
 black==21.7b0

@@ -141,25 +141,12 @@ class MilestoneApprovalApp(Application):
 
 
 
-
-
 if __name__ == "__main__":
 
-    approval_filename = "./build/milestoneApproval-approval.teal"
-    clear_filename = "./build/milestoneApproval-clear.teal"
-    interface_filename = "./build/milestoneApproval-contract.json"
-    
     app = MilestoneApprovalApp()
 
-    # save TEAL and ABI in build folder
-    with open(approval_filename, "w") as f:
-        f.write(app.approval_program)
-
-    with open(clear_filename, "w") as f:
-        f.write(app.clear_program)
-
-    import json
-    with open(interface_filename, "w") as f:
-        f.write(json.dumps(app.contract.dictify()))
-    
-    print('\n------------TEAL generation completed!------------\n')
+    try:
+        app.dump("./build/milestoneApproval")
+        print('\n------------TEAL generation completed!------------\n')
+    except Exception as err:
+        print('Error: {}'.format(err))
