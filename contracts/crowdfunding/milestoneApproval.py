@@ -101,8 +101,9 @@ class MilestoneApprovalApp(Application):
             If(Txn.sender() != self.creator.get())
             .Then(
                 Seq(
-                    #TODO: check amount of Lymph and set account votes accordingly
+                    # TODO: check amount of Lymph and set account votes accordingly
                     # If zero Reject()
+                    # TODO: check voting in allowed time window
                     self.account_votes.set(Int(1)),
                     # cast the vote
                     If(vote.get() == Int(0)) # reject the milestone

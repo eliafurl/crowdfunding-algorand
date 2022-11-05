@@ -98,25 +98,51 @@ def demo():
     sp = creator_app_client.client.suggested_params()
     sp.fee = sp.min_fee * 2
     sp.flat_fee = True
+    # set voting time window
+    current_time = datetime.datetime.now(datetime.timezone.utc)
+    end_time = current_time.timestamp() + 10
+
     # milestone_to_approve: abi.Uint8,
     # milestone_metadata: abi.String,
     # vote_end_date: abi.Uint64,
-    result = creator_app_client.call(
+    milestone_app_id = creator_app_client.call(
         CrowdfundingCampaignApp.submit_milestone,
         milestone_to_approve=1,
         milestone_metadata="ipfs:/milestone_1_metadata/CID",
-        vote_end_date=10,#TODO: set an correct vote_end_date time
+        vote_end_date=round(end_time),
         suggested_params=sp
     )
-    print(result.return_value)
 
     print_state(creator_app_client, ["campaign_state", "collected_funds", "total_backers", "milestone_approval_app_id"])
 
+    # Create the Application client containing both an algod client and MilestoneApprovalApp
+    milestone_app_client = ApplicationClient(client, MilestoneApprovalApp(), app_id=milestone_app_id.return_value, signer=creator_acct.signer)
+    print_state(milestone_app_client)
+    
+    # Opt-in form creator and user and vote
+    print("--[MILESTONE VOTING]---------Opt in the contract from creator account")
+    creator_milapp_client = milestone_app_client.prepare(signer=creator_acct.signer)
+    creator_milapp_client.opt_in(vote=1) # mandatory vote in opt-in (not accounted for creator)
+    print_state(creator_milapp_client, account=creator_acct)
+
+    print("--[MILESTONE VOTING]---------Opt in the contract from user account")
+    creator_milapp_client = milestone_app_client.prepare(signer=user_acct.signer)
+    creator_milapp_client.opt_in(vote=1) # mandatory vote in opt-in (0: reject, 1: approve)
+    print_state(creator_milapp_client, account=user_acct)
+
+    # Wait for the voting time window to close
+    time.sleep(20)
+
     # TODO:
-    # 1. opt-in form creator and user
-    # 2. vote the approval of the milestone
-    # 3. settle voting
-    milestone_app_client = ApplicationClient(client, MilestoneApprovalApp(), app_id=result.return_value, signer=creator_acct.signer)
+    # 2. settle voting
+    print("--[MILESTONE VOTING]---------Vote settling for current milestone")
+    sp = milestone_app_client.client.suggested_params()
+    result = creator_app_client.call(
+        MilestoneApprovalApp.vote_settling,
+        suggested_params=sp
+    )
+
+    print(result)
     print_state(milestone_app_client)
 
     # claim funds
