@@ -116,19 +116,18 @@ def demo():
     print_state(creator_app_client, ["campaign_state", "collected_funds", "total_backers", "milestone_approval_app_id"])
 
     # Create the Application client containing both an algod client and MilestoneApprovalApp
-    milestone_app_client = ApplicationClient(client, MilestoneApprovalApp(), app_id=milestone_app_id.return_value, signer=creator_acct.signer)
-    print_state(milestone_app_client)
+    creator_milapp_client = ApplicationClient(client, MilestoneApprovalApp(), app_id=milestone_app_id.return_value, signer=creator_acct.signer)
+    print_state(creator_milapp_client)
     
     # Opt-in form creator and user and vote
     print("--[MILESTONE VOTING]---------Opt in the contract from creator account")
-    creator_milapp_client = milestone_app_client.prepare(signer=creator_acct.signer)
     creator_milapp_client.opt_in(vote=1) # mandatory vote in opt-in (not accounted for creator)
     print_state(creator_milapp_client, account=creator_acct)
 
     print("--[MILESTONE VOTING]---------Opt in the contract from user account")
-    creator_milapp_client = milestone_app_client.prepare(signer=user_acct.signer)
-    creator_milapp_client.opt_in(vote=1) # mandatory vote in opt-in (0: reject, 1: approve)
-    print_state(creator_milapp_client, account=user_acct)
+    user_milapp_client = creator_milapp_client.prepare(signer=user_acct.signer)
+    user_milapp_client.opt_in(vote=1) # mandatory vote in opt-in (0: reject, 1: approve)
+    print_state(user_milapp_client, account=user_acct)
 
     # Wait for the voting time window to close
     time.sleep(20)
@@ -136,14 +135,12 @@ def demo():
     # TODO:
     # 2. settle voting
     print("--[MILESTONE VOTING]---------Vote settling for current milestone")
-    sp = milestone_app_client.client.suggested_params()
-    result = creator_app_client.call(
+    result = creator_milapp_client.call(
         MilestoneApprovalApp.vote_settling,
         suggested_params=sp
     )
 
-    print(result)
-    print_state(milestone_app_client)
+    print_state(creator_milapp_client, ["approval_state", "approve_votes", "reject_votes"])
 
     # claim funds
     # print("---------Claim funds 1 milestone from creator account")
