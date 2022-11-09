@@ -118,11 +118,6 @@ def demo():
     # Create the Application client containing both an algod client and MilestoneApprovalApp
     creator_milapp_client = ApplicationClient(client, MilestoneApprovalApp(), app_id=milestone_app_id.return_value, signer=creator_acct.signer)
     print_state(creator_milapp_client)
-    
-    # Opt-in form creator and user and vote
-    print("--[MILESTONE VOTING]---------Opt in the contract from creator account")
-    creator_milapp_client.opt_in(vote=1) # mandatory vote in opt-in (not accounted for creator)
-    print_state(creator_milapp_client, account=creator_acct)
 
     print("--[MILESTONE VOTING]---------Opt in the contract from user account")
     user_milapp_client = creator_milapp_client.prepare(signer=user_acct.signer)
@@ -141,8 +136,7 @@ def demo():
     # Wait for the voting time window to close
     time.sleep(20)
 
-    # TODO:
-    # 2. settle voting
+    # settle voting
     print("--[MILESTONE VOTING]---------Vote settling for current milestone")
     result = creator_milapp_client.call(
         MilestoneApprovalApp.vote_settling,

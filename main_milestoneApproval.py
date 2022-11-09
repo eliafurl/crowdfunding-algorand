@@ -40,9 +40,6 @@ def demo():
     # Read app global state 
     print_state(creator_app_client)
 
-    # opt in from the creator_acct
-    creator_app_client.opt_in(vote=1)
-
     # opt in from the user_acct and retrieve app local state
     print("---------Opt in the contract from user account and vote")
     user_app_client = creator_app_client.prepare(signer=user_acct.signer)
