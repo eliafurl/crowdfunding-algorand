@@ -53,7 +53,7 @@ def demo():
     creator_app_client.opt_in()
 
     # opt in from the user_acct and retrieve app local state
-    print("---------Opt in the contract from user account")
+    print("---------Opt in the campaign from user account")
     user_app_client = creator_app_client.prepare(signer=user_acct.signer)
     user_app_client.opt_in()
     
@@ -129,6 +129,15 @@ def demo():
     user_milapp_client.opt_in(vote=1) # mandatory vote in opt-in (0: reject, 1: approve)
     print_state(user_milapp_client, account=user_acct)
 
+    # try to call claim_funds while le voting is in progress, it should fail
+    try:
+        state = creator_app_client.get_application_state()
+        result = creator_app_client.call(CrowdfundingCampaignApp.claim_funds, foreign_apps=[state["milestone_approval_app_id"]])
+        print_state(creator_app_client, ["campaign_state", "collected_funds", "total_backers", "milestone_approval_app_id"])
+    except Exception as err:
+        print('Error: {}'.format(err))
+        print("OK")
+
     # Wait for the voting time window to close
     time.sleep(20)
 
@@ -143,7 +152,10 @@ def demo():
     print_state(creator_milapp_client, ["approval_state", "approve_votes", "reject_votes"])
 
     # claim funds
-    # print("---------Claim funds 1 milestone from creator account")
+    print("---------Claim funds 1 milestone from creator account")
+    state = creator_app_client.get_application_state()
+    result = creator_app_client.call(CrowdfundingCampaignApp.claim_funds, foreign_apps=[state["milestone_approval_app_id"]])
+    print_state(creator_app_client, ["campaign_state", "collected_funds", "total_backers", "milestone_approval_app_id"])
 
 def print_state(app_client, states=[], account=""):
     """
