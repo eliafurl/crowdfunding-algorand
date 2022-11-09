@@ -12,6 +12,7 @@ def demo():
     accts = sandbox.get_accounts()
     creator_acct = accts[0]
     user_acct = accts[1]
+    user_acct_2 = accts[2]
 
     # Create the Application client containing both an algod client and MilestoneApprovalApp
     creator_app_client = ApplicationClient(client, MilestoneApprovalApp(), signer=creator_acct.signer)
@@ -52,8 +53,16 @@ def demo():
     # Read app global state 
     print_state(creator_app_client, states=["approval_state","approve_votes", "reject_votes"])
 
-    # # Wait for the funding time window to close
+    # Wait for the funding time window to close
     time.sleep(35)
+
+    # vote when the time window closes.
+    user2_app_client = creator_app_client.prepare(signer=user_acct_2.signer)
+    try:
+        user2_app_client.opt_in(vote=1)
+    except Exception as err:
+        print('Error: {}'.format(err))
+        print("OK")
 
     # settle the voting
     print(f"---------Settle the voting from creator account")

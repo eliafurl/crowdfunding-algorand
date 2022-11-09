@@ -103,7 +103,8 @@ class MilestoneApprovalApp(Application):
                 Seq(
                     # TODO: check amount of Lymph and set account votes accordingly
                     # If zero Reject()
-                    # TODO: check voting in allowed time window
+                    Assert(self.vote_end_date.get() > Global.latest_timestamp(), comment="must be voting before vote_end_date"),
+                    # TODO: retrieve number of votes based on amount of Lymph
                     self.account_votes.set(Int(1)),
                     # cast the vote
                     If(vote.get() == Int(0)) # reject the milestone
