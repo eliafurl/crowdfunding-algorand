@@ -97,25 +97,23 @@ class MilestoneApprovalApp(Application):
     @opt_in
     def opt_in(self, vote: abi.Uint8): # vote {0: reject, 1: approve}
         return Seq(
+            Assert(Txn.sender() != self.creator.get(), comment="creator must not vote"),
             self.initialize_account_state(),
-            If(Txn.sender() != self.creator.get())
+            # TODO: check amount of Lymph and set account votes accordingly
+            # If zero Reject()
+            Assert(self.vote_end_date.get() > Global.latest_timestamp(), comment="must be voting before vote_end_date"),
+            # TODO: retrieve number of votes based on amount of Lymph
+            self.account_votes.set(Int(1)),
+            # cast the vote
+            If(vote.get() == Int(0)) # reject the milestone
             .Then(
-                Seq(
-                    #TODO: check amount of Lymph and set account votes accordingly
-                    # If zero Reject()
-                    self.account_votes.set(Int(1)),
-                    # cast the vote
-                    If(vote.get() == Int(0)) # reject the milestone
-                    .Then(
-                        self.reject_votes.increment(self.account_votes.get())
-                    )
-                    .ElseIf(vote.get() == Int(1)) # approve the milestone
-                    .Then(
-                        self.approve_votes.increment(self.account_votes.get())
-                    )
-                    .Else(Reject())
-                )
+                self.reject_votes.increment(self.account_votes.get())
             )
+            .ElseIf(vote.get() == Int(1)) # approve the milestone
+            .Then(
+                self.approve_votes.increment(self.account_votes.get())
+            )
+            .Else(Reject())
         )
 
     @external

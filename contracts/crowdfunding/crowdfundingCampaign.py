@@ -1,5 +1,4 @@
 from typing import Final
-from webbrowser import get
 
 from pyteal import (
     abi,
@@ -229,19 +228,25 @@ class CrowdfundingCampaignApp(Application):
                 self.campaign_state.get() == Int(2) # Campaign already funded. Milestone submitted
             )
             .Then(
+                approval_state := App.globalGetEx(self.milestone_approval_app_id.get(), Bytes("approval_state")),
+                Assert(approval_state.hasValue(), comment="approval_state must have a value"),
                 # Reject if the voting is in progress
-                #TODO: implement -> Assert (MilestoneApprovalApp.approval_state == pending_approval)
-                # If(MilestoneApprovalApp.approval_state == approved) # Milestone approved.
-                # .Then(self.reached_milestone.increment(Int(1)))
-                # Transfer funds_per_milestone[reached_milestone] to funds_receiver
+                Assert(approval_state.value() != Int(0), comment="approval_state must not be in pending_approval"),
+                If(approval_state.value() == Int(1)) # milestone approved
+                .Then(
+                    Seq(
+                        self.reached_milestone.increment(Int(1)),
+                        # TODO: Transfer funds_per_milestone[reached_milestone] to funds_receiver
+                    )  
+                ),
 
-                self.milestone_approval_app_id.set(Int(0)),
                 #TODO: MilestoneApprovalApp.delete()
+                self.milestone_approval_app_id.set(Int(0)),
             )
             .Else(Reject()),
 
             # Check that all the milestones have been completed
-            If(self.reached_milestone.get() == (self.total_milestones.get() - Int(1)))
+            If(self.reached_milestone.get() == self.total_milestones.get())
             .Then(self.campaign_state.set(Int(3))) # campaign: ended
             .Else(self.campaign_state.set(Int(1))), # campaign: waiting for next milestone
             Approve()
